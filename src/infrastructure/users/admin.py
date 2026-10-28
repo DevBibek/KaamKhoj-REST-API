@@ -29,11 +29,13 @@ class JobSeekerAdmin(admin.ModelAdmin):
 @admin.register(Company)
 class CompanyAdmin(admin.ModelAdmin):
     list_display=(
+            "id",
             "company_name",
             "description",
             "location",
             "website",
             "phone",
+            "verification_status",
             "created_at",
             "updated_at"
         )

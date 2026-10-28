@@ -11,7 +11,7 @@ class LoginUser:
         user = self.user_repository.get_by_email(email)
         
         if not user:
-            raise ValueError("Invalid eamil or password")
+            raise ValueError("Invalid email or password")
         
         authenticated_user = self.password_service.authenticate(
             email = email,

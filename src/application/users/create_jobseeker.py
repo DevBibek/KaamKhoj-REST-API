@@ -1,32 +1,26 @@
-from domain.users.jobseeker import JobSeeker
-from infrastructure.users.models import User
-
+from domain.users.jobseeker_rules import JobSeekerRules
 class CreateJobSeeker:
-    def __init__(self,repository):
+    def __init__(self,jobseeker_repo):
         
-        print("***************APPLICARION CREATE*************")
-        self.repository = repository
+        self.jobseeker_repo= jobseeker_repo
         
-    def execute(self,data,user,phone_number):
-        if user.role != User.Role.JOB_SEEKER:
-            raise ValueError({"detail":"Only jobseeker can create jobseeker profile"})
+    def gets_jobseeker(self,user):
+        return self.jobseeker_repo.list_by_user(user)
         
-        if self.repository.exists_by_user(user):
-            raise ValueError({"detail":"You have alreday jobseeker profile "})
+    def create(self,user,**data):
         
-        elif self.repository.exists_by_phone_number(phone_number):
-            raise ValueError({"detail":"This phone number is alreday registered"})
-    
+        jobseeker_exists = self.jobseeker_repo.exists_by_user(user)
+        phone_number = data.get("phone_number")
         
-        jobseeker = JobSeeker(
-            user= user,
-            full_name= data["full_name"],
-            phone_number=data["phone_number"],
-            address=data["address"],
-            skills= data["skills"],
-            education=data["education"],
-            experience= data["experience"],
-            resume=data.get("resume",None),
-            
-        )
-        return self.repository.save(jobseeker)
+        number_exists = self.jobseeker_repo.exists_by_phone_number(phone_number)
+        #apply business rules
+        JobSeekerRules.validate(
+            user=user,
+            jobseeker_exists= jobseeker_exists,
+            number_exists=number_exists )
+        
+        
+        return self.jobseeker_repo.create(
+            user=user,
+            **data
+            )

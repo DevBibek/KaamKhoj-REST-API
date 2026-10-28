@@ -1,7 +1,8 @@
 import logging
 
 from django.contrib.auth import authenticate
-from rest_framework import status
+from rest_framework import serializers, status
+from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import (
@@ -24,7 +25,7 @@ from .serializer import LoginSerializer, RegisterSerializer
 logger = logging.getLogger("kaamkhoj")
 
 
-class UserListCreateAPi(APIView,HandleResponseMixin):
+class UserRegisterationAPIView(APIView,HandleResponseMixin):
     def get(self,request):
         user = User.objects.all()
         serializer = RegisterSerializer(user,many= True)
@@ -44,8 +45,8 @@ class UserListCreateAPi(APIView,HandleResponseMixin):
                 )
             
             try:
-                repository = UserRepository()
-                use_case = RegisterUser(repository)
+                user_repo = UserRepository()
+                use_case = RegisterUser(user_repo)
                 user = use_case.execute(serializer.validated_data)
                 response_serializer = RegisterSerializer(user)
                 return self.success_handle(
@@ -60,48 +61,88 @@ class UserListCreateAPi(APIView,HandleResponseMixin):
                     code=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
             
-            
-class UserDeatilesApi(APIView,HandleResponseMixin):
-    
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from presentation.api.common.permission import IsOwner
+
+from .serializer import UserProfileUpdateSerializer
+
+
+class MyUserDetailsAPIView(APIView,HandleResponseMixin):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOwner]
     
     def get(self,request,pk):
+        user_repo = UserRepository()
+        use_case = RegisterUser(user_repo=user_repo)
         try:
-            user = User.objects.get(pk= pk)
-            serializer = RegisterSerializer(user,)
-            if not user:
-                return self.not_found(
-                    msg="User not found",
-                    code= status.HTTP_404_NOT_FOUND
-                )
+            user = use_case.get_user_by_id(
+                pk=pk,
+                user = request.user
+            )
+            serializer = RegisterSerializer(user)
+            
             return self.success_handle(
                 msg="User retrived successfully",
-                data= serializer.data,
+                data=serializer.data,
                 code= status.HTTP_200_OK
-            )
-        except User.DoesNotExist:
+                )
+        except NotFound as e:
             return self.not_found(
-                msg=f"User with id {pk} dosnt exist!!",
+                msg=str(e),
                 code= status.HTTP_404_NOT_FOUND
             )
+        except ValueError as e:
+            raise serializers.ValidationError(detail=str(e))
+        
+        
+        
         except Exception:
             logger.exception("Failed to retrive User data")
             return self.internal_server_error(
-                code= status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            code= status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
         
 
     
-    def put(self,request,pk):
+    def patch(self,request,pk):
         try:
-            user = User.objects.get(pk=pk)
-            serializer = RegisterSerializer(user,data = request.data)
+            serializer = UserProfileUpdateSerializer(
+                request.user,
+                data = request.data,
+                partial= True) #PATCH can update only somefields 
+            
             if serializer.is_valid():
-                serializer.save()
-                return self.success_handle(
-                    msg="User data updated successfully",
-                    data=serializer.data,
-                    code = status.HTTP_200_OK
-                )
+                user_repo = UserRepository()
+                use_case = RegisterUser(user_repo=user_repo)
+                try:
+                    use_case.update_user(
+                    pk=pk,
+                    user= request.user,
+                    data= serializer.validated_data
+                    )
+                    return self.success_handle(
+                        msg="User data updated successfully",
+                        data=serializer.data,
+                        code = status.HTTP_200_OK
+                    )
+                except ValueError as e:
+                    raise serializers.ValidationError(detail=str(e))
+                
+                except serializers.ValidationError as e:
+                    return self.error_handle(
+                        msg= "Validation failed",
+                        error= str(e),
+                        code= status.HTTP_400_BAD_REQUEST
+                    )
+                    
+                except NotFound as e:
+                    return self.not_found(
+                    msg= str(e),
+                    code= status.HTTP_404_NOT_FOUND
+                    )
+                    
             return self.error_handle(
                 msg="Validation failed",
                 error= serializer.errors,
@@ -120,15 +161,24 @@ class UserDeatilesApi(APIView,HandleResponseMixin):
             
     
     def delete(self,request,pk):
+        user_repo = UserRepository()
+        use_case = RegisterUser(user_repo=user_repo)
         try:
-            user = User.objects.get(pk=pk)
-            user.delete()
+            use_case.delete_user(
+            pk=pk,
+            user=request.user
+            )
             return self.success_handle(
                 msg="User delete sucessfully",
                 data= None,
                 code= status.HTTP_200_OK
             )
-            
+        
+        except  NotFound as e:
+            return self.not_found(
+                msg=str(e),
+                code= status.HTTP_404_NOT_FOUND
+            )
         except User.DoesNotExist:
                 return self.not_found(
                 msg=f"User with id {pk} dosnt exist!!",

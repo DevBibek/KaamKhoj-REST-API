@@ -41,6 +41,24 @@ class RegisterSerializer(serializers.ModelSerializer):
     
     
     
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+        ]
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError(
+                "At least one field is required to update."
+            )
+        return attrs    
+
+    
+    
 
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()

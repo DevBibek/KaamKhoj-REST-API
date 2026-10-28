@@ -1,24 +1,29 @@
-from domain.jobs.entities import Job
+from domain.jobs.job_create_rules import Createjob
 
 
-class CreateJobService:
-    def __init__(self, repository):
-        self.repository = repository
+class ManageCompanyJobs:
+    def __init__(
+        self,
+        job_repo,
+        company_repo):
         
-    def execute(self,data,user):
-        if user.role != user.Role.COMPANY:
-            raise ValueError("only job company create and acccess job")
+        self.job_repo = job_repo
+        self.company_repo = company_repo
+        
+        
+    def get_jobs(self,company):
+        return self.job_repo.list_by_company(company)
         
 
+    def create(self,user,**data):
+        company = self.company_repo.get_by_user(user)
         
-        job = Job(
-            title = data["title"],
-            description = data["description"],
-            salary = data["salary"],
-            location = data["location"],
-            company= user.company
+        #apply busines rules.
+        Createjob.validate(
+        user = user,
+        company=company
         )
-        return self.repository.create(job)
+        return self.job_repo.create(company,**data)
         
         
         

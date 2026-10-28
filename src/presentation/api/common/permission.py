@@ -5,10 +5,10 @@ from infrastructure.users.models import User
 
 class IsCompany(BasePermission):
     """
-    Custom permission to only allow authenticated company users to access or modify their own data.
+    Allows access only to authenticated COMPANY users.
     """
     
-    message = "Access restricted: Only authenticated COMPANY accounts are permitted to perform this action."
+    message = "Access restricted: Only authenticated COMPANY accounts are allowed."
     
     def has_permission(self,request,view):        
         return(request.user.is_authenticated and 
@@ -68,3 +68,10 @@ class ISApplication(BasePermission):
     def has_object_permission(self, request, view, obj):
         self.message = "Access denied: You do not have permission to modify or access another Jobseeker data"
         return obj.jobseeker.user == request.user
+    
+    
+class IsOwner(BasePermission):
+    message = "Access denied: You can only access your own data "
+    def has_object_permission(self, request, view, obj):
+        return obj.user == request.user
+        

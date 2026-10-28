@@ -1,25 +1,35 @@
+
 from .models import Application
 
 
 class ApplicationRepository:
-    def exists_by_user(self,user):
-        return Application.objects.filter(jobseeker=user.jobseeker).exists()
+    #check user profile
+    
+    #check already apply user
+    def has_alreday_applied(self,jobseeker,job):
+        return Application.objects.filter(
+            jobseeker=jobseeker,
+            job=job).exists()
     
     def get_my_application(self,user):
         return Application.objects.filter(jobseeker = user.jobseeker)
     
     
-    def get_by_job(slelf,job):
+    def get_by_job(self,job):
         
         return Application.objects.select_related("job","job__company","job__company__user").filter(job = job)
     
     def get_by_id(self,application_id):
-        return Application.objects.select_related("job","job__company","job__company__user").get(id = application_id)
+        return Application.objects.select_related("job","job__company","job__company__user").filter(id = application_id).first()
+    
+    
+    def create(self,jobseeker,**data):
+        return Application.objects.create(jobseeker=jobseeker ,**data)
+    
+    
     
     def save(self,application):
-        return Application.objects.create(
-            job = application.job,
-            cover_letter = application.cover_letter,
-            status = application.status,
-            jobseeker = application.jobseeker
+        application.save(
+            update_fields=["status"]
         )
+        return application

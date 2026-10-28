@@ -44,10 +44,17 @@ class JobSeeker(models.Model):
     
 
 class Company(models.Model):
+    class VerificationStatus(models.TextChoices):
+        PENDING = "PENDING","Pending"
+        VERIFIED = "VERIFIED","Verified"
+        REJECTED = "REJECTED","Rejected"
+        
     user = models.OneToOneField(User,on_delete=models.CASCADE,related_name="company")
     company_name = models.CharField(max_length=100)
     description = models.TextField(blank= True)
-    location = models.CharField(default="nepal")
+    location = models.CharField(
+        max_length=100,
+        default="nepal")
     website = models.URLField(null= True ,blank=True)
     phone = models.CharField(
         max_length=14,
@@ -56,6 +63,12 @@ class Company(models.Model):
                 regex=r"^(?:\+977)?(?:96|97|98)\d{8}$",
             message= "Enter a valid nepali number"
         )])
+    #NEW: company verification status
+    verification_status = models.CharField(
+        max_length=10,
+        choices= VerificationStatus.choices,
+        default= VerificationStatus.PENDING,
+    )
     created_at = models.DateTimeField(auto_now_add= True)
     updated_at = models.DateTimeField(auto_now=True)
     

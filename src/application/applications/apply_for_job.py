@@ -1,33 +1,35 @@
-from domain.applications.applications import Application
-from infrastructure.users.models import JobSeeker, User
+from domain.applications.apply_job_rules import ApplyJobRules
 
 
 class ApplyForJob:
-    def __init__(self,repository):
-        self.repository = repository
+    def __init__(
+        self,
+        application_repo,
+        job_repo,
+        jobseeker_repo
+        ):
+        self.application_repo = application_repo
+        self.job_repo = job_repo
+        self.jobseeker_repo =jobseeker_repo
         
-    
-    def execute(self,data,user):
-        if not user.is_active:
-            raise ValueError("User must be an active to apply job!")
         
-        if user.role!= User.Role.JOB_SEEKER:
-            raise PermissionError({"details":"Only jobseeker can applay job "})
+    def execute(self,user,**data,):
+        job =data.get("job")
         
-        jobseeker_user = JobSeeker.objects.filter(user = user)
-        if not jobseeker_user:
-            raise ValueError({"details":"Before applay job you must create jobseeker profile"})
+        jobseeker = self.jobseeker_repo.get_by_user(user)
         
-        elif self.repository.exists_by_user(user):
-            raise PermissionError({"details":"You have already applied this job!"})
+        alreday_applied = self.application_repo.has_alreday_applied(jobseeker,job)
         
-        application = Application(
-            job=data.get("job"),
-            cover_letter= data.get("cover_letter"),
-            status= data.get("status","pending"),
-            jobseeker = user.jobseeker
+        #apply business rules
+        ApplyJobRules.validate(
+            user=user,
+            jobseeker=jobseeker,
+            alreday_applied=alreday_applied,
+            job=job,
         )
         
-        return self.repository.save(application)
+        return self.application_repo.create(
+            jobseeker=jobseeker,
+            **data)
         
     

@@ -11,9 +11,8 @@ class Application(models.Model):
         ACCEPTED = "ACCEPTED","accepted"
         REJECTED = "REJECTED","rejected"
         
-        
-    jobseeker = models.ForeignKey(JobSeeker,on_delete=models.CASCADE)
-    job = models.ForeignKey(Job,on_delete=models.CASCADE)
+    jobseeker = models.ForeignKey(JobSeeker,on_delete=models.CASCADE,related_name="application")
+    job = models.ForeignKey(Job,on_delete=models.CASCADE,related_name="applications")
     cover_letter = models.TextField(blank=True)
     status = models.CharField(
         max_length=20,
@@ -23,13 +22,6 @@ class Application(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["jobseeker", "job"],
-                name="unique_job_application",
-            )
-        ]
 
     def __str__(self):
         return f"{self.jobseeker} - {self.job}"

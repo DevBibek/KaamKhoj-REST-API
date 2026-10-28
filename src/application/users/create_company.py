@@ -1,26 +1,25 @@
-from domain.users.company import Company
+from domain.users.company_rules import CompanyRules
 
 
 class CreateCompany:
-    def __init__(self, repository):
-        self.repository = repository
+    def __init__(self, company_repo):
+        self.company_repo = company_repo
+        
+    def gets_company(self,user):
+        return self.company_repo.list_by_user(user)
 
-    def execute(self, data, user):
-
-        if user.role != user.Role.COMPANY:
-            raise ValueError(
-            "Only company role user can create company profile."
-            )
-            
-        if self.repository.exists_by_user(user):
-            raise ValueError("You allreday have a company profile.")
-        company = Company(
-            user=user,
-            company_name=data["company_name"],
-            description=data["description"],
-            location=data["location"],
-            phone=data["phone"],
-            website=data.get("website"),
+    def create(self,user,**data):
+        
+        company_exists =  self.company_repo.exists_by_user(user)
+        
+        #apply business rules
+        CompanyRules.validate(
+        user=user,
+        company_exists=company_exists
         )
-
-        return self.repository.save(company)
+        
+        return self.company_repo.create(user= user,**data)
+        
+    
+        
+        

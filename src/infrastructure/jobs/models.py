@@ -4,6 +4,7 @@ from infrastructure.users.models import Company
 
 
 class Job(models.Model):
+    
     company = models.ForeignKey(Company,on_delete=models.CASCADE,related_name="job")
     title = models.CharField(max_length=100)
     description = models.TextField(max_length=200)

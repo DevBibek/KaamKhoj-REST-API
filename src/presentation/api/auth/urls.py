@@ -4,16 +4,16 @@ from .views import (
     LoginAPIView,
     LoginJWT,
     RefreshTokenAPI,
-    UserDeatilesApi,
-    UserListCreateAPi,
+    MyUserDetailsAPIView,
+    UserRegisterationAPIView,
     LogoutJWTAPI
 )
 
 urlpatterns =  [
-    path("register-api/",UserListCreateAPi.as_view(),name="register-api"),
-    path("register-api/<int:pk>/",UserDeatilesApi.as_view(),name="register-api"),
+    path("auth/register/",UserRegisterationAPIView.as_view(),name="users-register"),
+    path("users/me/<int:pk>/",MyUserDetailsAPIView.as_view(),name="my-user-details"),
     # path("login/",LoginJWT.as_view(),name="login"),
-    path("login/",LoginAPIView.as_view(),name="login"),
+    path("auth/login/",LoginAPIView.as_view(),name="user-login"),
     path("refresh-token/",RefreshTokenAPI.as_view(),name="refresh token"),
     path("logout/",LogoutJWTAPI.as_view(),name="logout_user")
     

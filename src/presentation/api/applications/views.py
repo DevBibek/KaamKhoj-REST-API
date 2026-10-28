@@ -1,11 +1,12 @@
 from rest_framework import serializers, status, viewsets
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from application.applications.apply_for_job import ApplyForJob
 from infrastructure.applications.repository import ApplicationRepository
+from infrastructure.users.repository.jobseeker_repository import JobSeekerRepository
 from presentation.api.applications.serializers import (
     ApplicationListSerializer,
     ApplicationSerializer,
@@ -16,6 +17,7 @@ from presentation.api.common.responses import HandleResponseMixin
 
 class ApplayForJobAPI(APIView, HandleResponseMixin):
     authentication_classes = [JWTAuthentication]
+    permission_classes = [ISApplication]
     
     def post(self,request):
         serializer = ApplicationSerializer(data = request.data)
@@ -25,18 +27,28 @@ class ApplayForJobAPI(APIView, HandleResponseMixin):
                 error= serializer.errors,
                 code= status.HTTP_404_NOT_FOUND
             )
-        repository = ApplicationRepository()
+        application_repo = ApplicationRepository()
+        
+        job_repo = JobRepository()
+        
+        jobseeker_repo = JobSeekerRepository()
+        
+        
         use_case =  ApplyForJob(
-        repository=repository
+        application_repo=application_repo,
+        job_repo = job_repo,
+        jobseeker_repo = jobseeker_repo,
         )
+        
+        data = serializer.validated_data
         try:
             use_case.execute(
-            data=serializer.data,
-            user= self.request.user
+            user= self.request.user,
+            **data
             )
             return self.success_handle(
                 msg="Job Apply successfully",
-                data=serializer.validated_data,
+                data=serializer.data,
                 code= status.HTTP_201_CREATED
             )
             
@@ -78,13 +90,16 @@ class GetMyApplicationAPI(viewsets.ReadOnlyModelViewSet):
         
 from application.applications.get_job_application import GetJobApplication
 from infrastructure.jobs.repositories import JobRepository
-from presentation.api.user.serializer import CompanyApplicationSerializer
+from presentation.api.common.pagination import CustomPagination
+from presentation.api.user.serializers.company_serializers import (
+    CompanyApplicationSerializer,
+)
 
-        
+
 class CompanyJobApplicationListAPI(APIView):
-    permission_classes = [IsCompany]
+    permission_clesses = [IsCompany]
     authentication_classes = [JWTAuthentication]
-    
+    pagination_cleass = CustomPagination
     def get(self,request,job_id):
         job_repository = JobRepository()
         application_repository = ApplicationRepository()
@@ -94,10 +109,13 @@ class CompanyJobApplicationListAPI(APIView):
             job_repository= job_repository
         )
         
+        paginator = self.pagination_cleass()
         try:
             applications = use_case.execute(user= request.user,
                 job_id=job_id
             )
+            page = paginator.paginate_queryset(applications,request,view=self)
+        
         
         except ValueError as e:
             return Response({"message":str(e)},status=status.HTTP_400_BAD_REQUEST)
@@ -105,25 +123,11 @@ class CompanyJobApplicationListAPI(APIView):
             return Response({"message":str(e)},status=status.HTTP_403_FORBIDDEN)
         
         
-        serializer = CompanyApplicationSerializer(applications,many= True)
+        serializer = CompanyApplicationSerializer(page,many= True)
         
-        return Response({
-            "message":"Applications retrieved successfully",
-            "total applicatin": applications.count(),
-            "applications": serializer.data,
-        },status= status.HTTP_200_OK)
-        
-        
+        return paginator.get_paginated_response(serializer.data)
     
         
-        
-        
-        
-        
-        
-        
-        
-
 
 # from application.applications.update_application_status import UpdataApplication
 
@@ -144,22 +148,21 @@ class UpdateApplicationStatusAPI(APIView):
         
         try :
             application = use_case.execute(
+                user=request.user,
                 application_id= application_id,
                 company_user= request.user,
                 new_status= new_status
             )
         except ValueError as e:
-            return Response({
-                "message":str(e)},status=status.HTTP_400_BAD_REQUEST)
+            raise serializers.ValidationError(str(e))
+            
             
         except PermissionError as e:
-            return Response({
-                "message": str(e)
-            },status= status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied(str(e))
         
         
         return Response({
             "message":"Application status update sucessfully",
-            "application_id": request.user.id,
+            "application_id": application.id,
             "application_status":application.status,
         })

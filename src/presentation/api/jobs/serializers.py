@@ -1,15 +1,20 @@
 from rest_framework import serializers
 
 from infrastructure.jobs.models import Job
-from presentation.api.user.serializer import CompanySerializers
+from presentation.api.user.serializers.company_serializers import CompanySerializers
 
-
-class JobPostSerializer(serializers.ModelSerializer):
-    
+# class ApplicationSerializer(serializers.Serializer):
+#      class Meta:
+#             model = Application
+#             fields = ["id","status","created_at"]
+        
+class JobSerializer(serializers.ModelSerializer):
     company = serializers.CharField(
         read_only = True,
         source = "company.company_name",
     )
+    # application = ApplicationSerializer(many=True,read_only= True)
+    # total_application = serializers.SerializerMethodField()
     title = serializers.CharField(
         required = True, 
         min_length = 5,
@@ -62,9 +67,13 @@ class JobPostSerializer(serializers.ModelSerializer):
             "company",
             "is_active",
             "created_at",
-            "updated_at"
+            "updated_at",
         )
+    
     def validate_salary(self,value):
         if value<=0:
             raise  serializers.ValidationError("Salary must be greater than 0")
         return value
+
+    # def get_total_application(self,obj):
+    #     return len(obj.applications.all())
