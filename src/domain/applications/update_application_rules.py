@@ -1,16 +1,20 @@
+from rest_framework.exceptions import NotFound
+
+from infrastructure.users.models import User
+
 
 class UpdateApplicationRules:
     @staticmethod
     def validate(user,company_user,application,new_status):
         
-        if user.role != user.Role.COMPANY:
+        if user.role != User.Role.COMPANY:
             raise PermissionError("Only company user can change there owen status")
         
         if application is None:
-            raise ValueError("Application not found.")
+            raise NotFound("Application not found.")
         
         if application.job.company.user!= company_user:
-            raise ValueError("You cant not update this application.")
+            raise PermissionError("You cant not update other job application.")
         
         
             

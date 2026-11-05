@@ -121,14 +121,15 @@ class PublicJobListView(APIView,HandleResponseMixin):
             max_salary=max_salary,
             ordering = ordering,
         )
-        if not jobs.exists():
-            return  self.not_found(
-                msg="Job not found",
-                code= status.HTTP_404_NOT_FOUND
-            )
+        # if not jobs.exists():
+        #     return  self.not_found(
+        #         msg="Job not found",
+        #         code= status.HTTP_404_NOT_FOUND
+        #     )
             
             
         paginator = self.pagination_class()
+        paginator.message = "Jobs retrieved successfully."
         page = paginator.paginate_queryset(jobs,request,)
         
         serializer = JobSerializer(page,many= True)

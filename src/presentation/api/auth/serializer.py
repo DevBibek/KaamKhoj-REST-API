@@ -7,12 +7,16 @@ from infrastructure.users.models import User
 
 class RegisterSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
-            if not re.match(r"^[A-Za-z0-9._%+-]+@gmail\.com$", value):
-                raise serializers.ValidationError(
-                    "Only Gmail addresses are allowed."
-                    )
-            return value
-        
+        clean_email = value.strip()
+        if not re.match(r"^[A-Za-z0-9._%+-]+@gmail\.com$", clean_email):
+            raise serializers.ValidationError(
+            "Only Gmail addresses are allowed."
+            )
+        if any(char.isupper() for char in clean_email):
+                raise serializers.ValidationError("Email must contain only lowercase letters.")
+            
+        return clean_email
+    
     def validate_password(self,value):
         if len(value)<8:
             raise serializers.ValidationError("password must be at least 8 characters")

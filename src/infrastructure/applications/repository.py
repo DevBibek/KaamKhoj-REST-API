@@ -12,12 +12,18 @@ class ApplicationRepository:
             job=job).exists()
     
     def get_my_application(self,user):
-        return Application.objects.filter(jobseeker = user.jobseeker)
+        return Application.objects.select_related("job").filter(
+            jobseeker = user.jobseeker
+            ).order_by("-created_at")
     
     
     def get_by_job(self,job):
         
-        return Application.objects.select_related("job","job__company","job__company__user").filter(job = job)
+        return Application.objects.select_related(
+            "job",
+            "jobseeker",
+            "jobseeker__user"
+            ).filter(job = job).order_by("-created_at","-id")
     
     def get_by_id(self,application_id):
         return Application.objects.select_related("job","job__company","job__company__user").filter(id = application_id).first()

@@ -5,10 +5,10 @@ from presentation.api.jobs.views import CompanyJobViewSet,MyPostAPI,PublicJobLis
 
 router = DefaultRouter()
 
-router.register(r'create-job',CompanyJobViewSet,basename="jobpostapi")
+router.register(r'create/job',CompanyJobViewSet,basename="jobpostapi")
 
 urlpatterns = [
     path('',include(router.urls)),
     path("jobs/",PublicJobListView.as_view(),name = "jobs"),
-    path("company/my-posts/",MyPostAPI.as_view(),name= "my-posts")
+    path("company/my/posts/",MyPostAPI.as_view(),name= "my-posts")
 ]

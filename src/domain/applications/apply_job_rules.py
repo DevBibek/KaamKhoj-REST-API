@@ -6,7 +6,7 @@ class ApplyJobRules:
             raise ValueError("User must an active to apply job")
         
         if user.role != user.Role.JOB_SEEKER:
-            raise PermissionError("Only Jobseeker accounts user can apply job")
+            raise PermissionError("Only Jobseeker  user can apply job")
         
         if jobseeker is None:
             raise ValueError("Befor apply job you must create jobseeker profile.")
@@ -18,4 +18,4 @@ class ApplyJobRules:
             raise ValueError("This job is no Longer active")
         
         if alreday_applied:
-            raise PermissionError("you have alreday apply this job.")
+            raise ValueError("you have alreday apply this job.")

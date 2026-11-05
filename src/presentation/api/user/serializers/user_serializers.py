@@ -22,3 +22,4 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "role",
             )
+        

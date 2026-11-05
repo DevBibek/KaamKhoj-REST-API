@@ -12,11 +12,11 @@ class GetJobApplication:
         
         
         
-    def execute(self,user,job_id,):
+    def execute(self,user,job_id):
         
         job = self.job_repository.get_by_id(job_id)
         
-        if not job:
+        if job is None:
             raise ValueError(f"{job_id} Job not found !")
         
         
@@ -25,6 +25,7 @@ class GetJobApplication:
             
         
         applications = self.application_repository.get_by_job(job)
+        
         
         
         return applications

@@ -1,11 +1,9 @@
 from rest_framework import serializers
 
-from infrastructure.users.models import JobSeeker
+from infrastructure.users.models import JobSeeker, User
 
 
 class JobSeekerSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source="user.username", read_only=True)
-    email = serializers.CharField(source = "user.email",read_only = True)
     full_name = serializers.CharField(
         required= True,
         max_length = 50,
@@ -66,8 +64,6 @@ class JobSeekerSerializer(serializers.ModelSerializer):
         model = JobSeeker
         fields = (
             "id",
-            "username",
-            "email",
             "full_name",
             "phone_number",
             "address",
@@ -87,4 +83,99 @@ class JobSeekerSerializer(serializers.ModelSerializer):
         )
     
     
+class JobseekerUserUpdateSerializer(serializers.Serializer):
+    username = serializers.CharField(
+        max_length = 150,
+        required = False
+    )
+        
+    first_name = serializers.CharField(
+        max_length = 100,
+        required = False
+    )      
+        
+    last_name = serializers.CharField(
+        max_length = 100,
+        required = False
+    )
+        
+    email = serializers.EmailField(required = False)
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError(
+            "Provied as least on user field to update"
+            )
+        return attrs
+
+
+
+
+class JobseekerReadSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
     
+    class Meta:
+        model = JobSeeker
+        fields = (
+            "id",
+            "user",
+            "full_name",
+            "phone_number",
+            "address",
+            "skills",
+            "education",
+            "experience",
+            "resume",
+        )
+        
+    def get_user(self,obj):
+        return {
+            "username": obj.user.username,
+            "first_name":obj.user.first_name,
+            "last_name":obj.user.last_name,
+            "email":obj.user.email,
+            }
+        
+    
+    
+    
+class JobseekerUpdateSerializer(serializers.ModelSerializer):
+    user = JobseekerUserUpdateSerializer(required=False)
+    class Meta:
+        model = JobSeeker
+        fields = (
+            "id",
+            "user",
+            "full_name",
+            "phone_number",
+            "address",
+            "skills",
+            "education",
+            "experience",
+            "resume",
+        )
+        
+        
+    def validate(self, attrs):
+            user_data = attrs.get("user",{})
+            company = self.instance
+            
+            if "username" in user_data:
+                username_exists = User.objects.filter(
+                    username =user_data["username"]
+                ).exclude(id=company.user_id).exists()
+                if username_exists:
+                    raise serializers.ValidationError({
+                        "user": {"username": "This username  is already registered."}
+                    })
+            
+            if "email" in user_data:
+                username_exists = User.objects.filter(
+                    email__iexact =user_data["email"]# __iexact :case-insensitive exact matching
+                ).exclude(id=company.user_id).exists()
+                if username_exists:
+                    raise serializers.ValidationError({
+                        "user": {"username": "This username  is already registered."}
+                })
+                    
+                    
+            return attrs

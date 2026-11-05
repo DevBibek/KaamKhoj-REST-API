@@ -16,7 +16,7 @@ class UpdateVerifiedStatus:
         UpdateVerificationRules.validate(
             user=user,
             company=company,
-            new_status=new_status
+            new_status=new_status,
         )
         company.verification_status = new_status
         

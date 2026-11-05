@@ -13,7 +13,7 @@ from rest_framework_simplejwt.exceptions import (
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from application.auth.login_user import LoginUser
-from application.auth.register_user import RegisterUser
+from application.auth.register_user import RegisterUserUseCase
 from infrastructure.auth.jwt_service import JWTService
 from infrastructure.auth.password_service import PasswordService
 from infrastructure.users.models import User
@@ -46,13 +46,13 @@ class UserRegisterationAPIView(APIView,HandleResponseMixin):
             
             try:
                 user_repo = UserRepository()
-                use_case = RegisterUser(user_repo)
+                use_case = RegisterUserUseCase(user_repo)
                 user = use_case.execute(serializer.validated_data)
                 response_serializer = RegisterSerializer(user)
                 return self.success_handle(
                     msg="User registered successfully",
                     data= response_serializer.data,
-                    code= status.HTTP_200_OK,
+                    code= status.HTTP_201_CREATED,
                 )
     
             except Exception:
@@ -75,7 +75,7 @@ class MyUserDetailsAPIView(APIView,HandleResponseMixin):
     
     def get(self,request,pk):
         user_repo = UserRepository()
-        use_case = RegisterUser(user_repo=user_repo)
+        use_case = RegisterUserUseCase(user_repo=user_repo)
         try:
             user = use_case.get_user_by_id(
                 pk=pk,
@@ -115,7 +115,7 @@ class MyUserDetailsAPIView(APIView,HandleResponseMixin):
             
             if serializer.is_valid():
                 user_repo = UserRepository()
-                use_case = RegisterUser(user_repo=user_repo)
+                use_case = RegisterUserUseCase(user_repo=user_repo)
                 try:
                     use_case.update_user(
                     pk=pk,
@@ -162,7 +162,7 @@ class MyUserDetailsAPIView(APIView,HandleResponseMixin):
     
     def delete(self,request,pk):
         user_repo = UserRepository()
-        use_case = RegisterUser(user_repo=user_repo)
+        use_case = RegisterUserUseCase(user_repo=user_repo)
         try:
             use_case.delete_user(
             pk=pk,
@@ -319,7 +319,7 @@ class RefreshTokenAPI(APIView):
         return Response({
             "message":"New access tokens generated successfully",
             "Tokens":tokens
-        },status=status.HTTP_201_CREATED)
+        },status=status.HTTP_200_OK)
         
         
 from application.auth.logout import LogoutUser
@@ -333,7 +333,7 @@ class LogoutJWTAPI(APIView):
         if not refresh_token:
             return Response({
                 "message":"Refresh token not found in cookies"
-                },status=status.HTTP_400_BAD_REQUEST)
+                },status=status.HTTP_401_UNAUTHORIZED)
             
         token_blacklist = TokenBlacklistService()
         logut_user = LogoutUser(blacklist_token=token_blacklist)

@@ -7,7 +7,7 @@ class Createjob:
             raise PermissionError('only company user can create job.')
         
         if company is None:
-            raise ValueError("Company profile is required  befor create job")
+            raise PermissionError("Company profile is required  befor create job")
                 
                 
         

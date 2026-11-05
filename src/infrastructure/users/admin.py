@@ -6,8 +6,11 @@ from .models import Company, JobSeeker, User
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display =(
+            "id",
+            "first_name",
+            "last_name",
             "email",
-            "role"
+            "role",
     )
 
 @admin.register(JobSeeker)
@@ -30,6 +33,7 @@ class JobSeekerAdmin(admin.ModelAdmin):
 class CompanyAdmin(admin.ModelAdmin):
     list_display=(
             "id",
+            'user',
             "company_name",
             "description",
             "location",

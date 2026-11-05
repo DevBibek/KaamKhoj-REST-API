@@ -1,3 +1,6 @@
+from rest_framework.exceptions import NotFound
+
+
 class UpdateVerificationRules:
     @staticmethod
     def validate(user,company,new_status):
@@ -5,7 +8,7 @@ class UpdateVerificationRules:
             raise PermissionError("Only admin users can update company verification status.")
         
         if company is None:
-            raise ValueError("Company not found")
+            raise NotFound("Company not found")
         
         current_status = company.verification_status
         

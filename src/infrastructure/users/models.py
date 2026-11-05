@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractUser
+from django.core.validators import RegexValidator
 from django.db import models
 
 
@@ -13,7 +14,6 @@ class User(AbstractUser):
 
 
 
-from django.core.validators import RegexValidator
 
 
 class JobSeeker(models.Model):

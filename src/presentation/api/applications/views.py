@@ -1,32 +1,40 @@
 from rest_framework import serializers, status, viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from application.applications.apply_for_job import ApplyForJob
+from application.applications.get_job_application import GetJobApplication
+from application.applications.get_my_applications import GetMyApplication
+from application.applications.update_application_status import UpdataApplication
+from infrastructure.applications.models import Application
 from infrastructure.applications.repository import ApplicationRepository
+from infrastructure.jobs.repositories import JobRepository
 from infrastructure.users.repository.jobseeker_repository import JobSeekerRepository
 from presentation.api.applications.serializers import (
     ApplicationListSerializer,
     ApplicationSerializer,
 )
-from presentation.api.common.permission import ISApplication, IsCompany
+from presentation.api.common.pagination import CustomPagination
+from presentation.api.common.permission import IsApplication, IsCompany
 from presentation.api.common.responses import HandleResponseMixin
+from presentation.api.user.serializers.company_serializers import (
+    CompanyApplicationSerializer,
+)
+
+from .serializers import UpdateApplicationStatusSerializers
 
 
-class ApplayForJobAPI(APIView, HandleResponseMixin):
+class ApplyForJobAPI(APIView, HandleResponseMixin):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [ISApplication]
+    permission_classes = [IsApplication]
     
     def post(self,request):
         serializer = ApplicationSerializer(data = request.data)
-        if not serializer.is_valid():
-            return self.error_handle(
-                msg="Invalid data provide",
-                error= serializer.errors,
-                code= status.HTTP_404_NOT_FOUND
-            )
+        serializer.is_valid(raise_exception=True)
+        
         application_repo = ApplicationRepository()
         
         job_repo = JobRepository()
@@ -70,14 +78,10 @@ class ApplayForJobAPI(APIView, HandleResponseMixin):
             
             
     
-        
-from application.applications.get_my_applications import GetMyApplication
-from application.applications.update_application_status import UpdataApplication
-
 
 class GetMyApplicationAPI(viewsets.ReadOnlyModelViewSet):  
     serializer_class = ApplicationListSerializer  
-    permission_classes =[ISApplication]
+    permission_classes =[IsApplication]
     def get_queryset(self):
         repository = ApplicationRepository()
         use_case = GetMyApplication(repository)
@@ -87,19 +91,17 @@ class GetMyApplicationAPI(viewsets.ReadOnlyModelViewSet):
         except ValueError as e:
             raise serializers.ValidationError(str(e))
         
+        except PermissionError as e:
+            raise PermissionDenied(detail=str(e))
         
-from application.applications.get_job_application import GetJobApplication
-from infrastructure.jobs.repositories import JobRepository
-from presentation.api.common.pagination import CustomPagination
-from presentation.api.user.serializers.company_serializers import (
-    CompanyApplicationSerializer,
-)
+        
+
 
 
 class CompanyJobApplicationListAPI(APIView):
-    permission_clesses = [IsCompany]
+    permission_classes= [IsAuthenticated,IsCompany]
     authentication_classes = [JWTAuthentication]
-    pagination_cleass = CustomPagination
+    pagination_class= CustomPagination
     def get(self,request,job_id):
         job_repository = JobRepository()
         application_repository = ApplicationRepository()
@@ -109,7 +111,8 @@ class CompanyJobApplicationListAPI(APIView):
             job_repository= job_repository
         )
         
-        paginator = self.pagination_cleass()
+        paginator = self.pagination_class()
+        paginator.message ="Application retrieved successfully"
         try:
             applications = use_case.execute(user= request.user,
                 job_id=job_id
@@ -118,9 +121,10 @@ class CompanyJobApplicationListAPI(APIView):
         
         
         except ValueError as e:
-            return Response({"message":str(e)},status=status.HTTP_400_BAD_REQUEST)
+            raise NotFound(detail=str(e))
+        
         except PermissionError as e:
-            return Response({"message":str(e)},status=status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied(detail=str(e))
         
         
         serializer = CompanyApplicationSerializer(page,many= True)
@@ -128,11 +132,6 @@ class CompanyJobApplicationListAPI(APIView):
         return paginator.get_paginated_response(serializer.data)
     
         
-
-# from application.applications.update_application_status import UpdataApplication
-
-from .serializers import UpdateApplicationStatusSerializers
-
 
 class UpdateApplicationStatusAPI(APIView):
     permission_classes = [IsCompany]
@@ -153,13 +152,15 @@ class UpdateApplicationStatusAPI(APIView):
                 company_user= request.user,
                 new_status= new_status
             )
-        except ValueError as e:
-            raise serializers.ValidationError(str(e))
             
+        except ValueError as e:
+            raise ValidationError(detail=str(e))
             
         except PermissionError as e:
             raise PermissionDenied(str(e))
         
+        except Application.DoesNotExist:
+            raise NotFound("Application not found.")
         
         return Response({
             "message":"Application status update sucessfully",

@@ -19,15 +19,15 @@ class JobRepository:
         queryset = JobModel.objects.filter(
             is_active= True,
             company__verification_status = "VERIFIED"
-            ).select_related("company")
+            ).select_related("company") 
             
-        
+#   
         if search and search.strip():
         # for remove space and slace'/'
             clean_search = search.strip().rstrip('/')
             queryset= queryset.filter(
                 Q(title__icontains = clean_search)
-                |Q(description__icontains= search)
+                |Q(description__icontains= clean_search)
             )
             
         if location :
@@ -65,14 +65,15 @@ class JobRepository:
     def list_by_company(self,company):
             return JobModel.objects.select_related("company").filter(company = company).order_by("-created_at")
         
-        
+    
     
     def get_by_id(self,job_id):
+        try:
             return JobModel.objects.select_related("company","company__user").get(id = job_id)
-            
+        except JobModel.DoesNotExist:
+            return None
         
     def create(self,company,**data):
-        print("++++++++++++ Job Repositry running ====================")
         return JobModel.objects.create(
             company = company,**data
             )

@@ -3,7 +3,7 @@ from rest_framework.exceptions import NotFound
 from domain.auth.user_delete_rules import UserDeleteRules
 
 
-class RegisterUser:
+class RegisterUserUseCase:
     def __init__(self,user_repo):
         self.user_repo = user_repo
         
