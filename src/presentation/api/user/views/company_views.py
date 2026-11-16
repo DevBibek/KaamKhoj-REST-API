@@ -1,6 +1,7 @@
 import logging
 
-from rest_framework import mixins, serializers, status, viewsets
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers, status, viewsets
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -46,7 +47,11 @@ class CompanyProfileViewSet(viewsets.ViewSet,HandleResponseMixin):
             code = status.HTTP_200_OK
         )
         
-
+    @extend_schema(
+        request=CompanySerializers,
+        summary="Company Profile ",
+        description="Create company profile",
+    )
     def create(self, request):
         serializer =CompanySerializers(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -71,7 +76,12 @@ class CompanyProfileViewSet(viewsets.ViewSet,HandleResponseMixin):
             return self.internal_server_error(
                 code= status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-
+    @extend_schema(
+        request=CompanyUpdateSerializer,
+        summary="Company Profile",
+        description="Update company profile"
+        
+    )
     def update(self,request):
         try:
             company = Company.objects.get(user=request.user)

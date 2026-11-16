@@ -1,12 +1,15 @@
 import logging
 
 from django.contrib.auth import authenticate
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import (
     AuthenticationFailed,
+    ExpiredTokenError,
     InvalidToken,
     TokenError,
 )
@@ -26,6 +29,7 @@ logger = logging.getLogger("kaamkhoj")
 
 
 class UserRegisterationAPIView(APIView,HandleResponseMixin):
+    throttle_scope = "register"
     def get(self,request):
         user = User.objects.all()
         serializer = RegisterSerializer(user,many= True)
@@ -34,17 +38,23 @@ class UserRegisterationAPIView(APIView,HandleResponseMixin):
             data = serializer.data,
             code= status.HTTP_200_OK
         )
-        
-    def post(self,request):
-            serializer = RegisterSerializer(data = request.data)
-            if not serializer.is_valid():
-                return self.error_handle(
-                    msg= "invalid input data provied",
-                    error= serializer.errors,
-                    code=status.HTTP_400_BAD_REQUEST
+    @extend_schema(
+        request=RegisterSerializer,
+        responses={201, RegisterSerializer},
+        summary="Register User",
+        description="Create a new user account."
+    )
+    
+    def post(self,request): 
+        serializer = RegisterSerializer(data = request.data)
+        if not serializer.is_valid():
+            return self.error_handle(
+                msg= "invalid input data provied",
+                error= serializer.errors,
+                code=status.HTTP_400_BAD_REQUEST
                 )
-            
-            try:
+                
+        try:
                 user_repo = UserRepository()
                 use_case = RegisterUserUseCase(user_repo)
                 user = use_case.execute(serializer.validated_data)
@@ -55,7 +65,7 @@ class UserRegisterationAPIView(APIView,HandleResponseMixin):
                     code= status.HTTP_201_CREATED,
                 )
     
-            except Exception:
+        except Exception:
                 logger.exception("Failed to register user")
                 return self.internal_server_error(
                     code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -195,6 +205,8 @@ class MyUserDetailsAPIView(APIView,HandleResponseMixin):
             
             
 class LoginJWT(APIView):
+    
+    
     @staticmethod
     def get_tokens_for_user(user):
         if not user.is_active:
@@ -243,6 +255,12 @@ class LoginJWT(APIView):
             
             
 class LoginAPIView(APIView):
+    throttle_scope = "login"
+    @extend_schema(
+        request=LoginSerializer,
+        summary="User Login",
+        description="Authenticate user using email and password.",
+    )
     def post(self,request):
         serializer = LoginSerializer(data = request.data)
         serializer.is_valid(raise_exception=True)
@@ -296,6 +314,14 @@ from application.auth.refresh_access_token import RefreshAccessToken
 
 
 class RefreshTokenAPI(APIView):
+    
+    throttle_scope = "refresh"
+    
+    @extend_schema(
+        request=None,
+        summary="Refresh Access Token",
+        description="Generate new access token using the refresh token store in the cookie"
+    )
     def post(self,request):
         refresh_token = request.COOKIES.get("refresh_token")
         if not refresh_token:
@@ -327,6 +353,11 @@ from infrastructure.auth.token_blacklist import TokenBlacklistService
 
 
 class LogoutJWTAPI(APIView):
+    @extend_schema(
+        request=None,
+        summary="User Logout",
+        description="Logout useing refresh token store in the cookie"
+    )
     def post(self,request):
         
         refresh_token = request.COOKIES.get("refresh_token")

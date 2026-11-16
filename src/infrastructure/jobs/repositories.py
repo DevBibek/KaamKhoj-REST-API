@@ -1,4 +1,3 @@
-from django.db import connection
 from django.db.models import Q
 
 from .models import Job as JobModel
@@ -21,7 +20,7 @@ class JobRepository:
             company__verification_status = "VERIFIED"
             ).select_related("company") 
             
-#   
+
         if search and search.strip():
         # for remove space and slace'/'
             clean_search = search.strip().rstrip('/')
@@ -67,9 +66,9 @@ class JobRepository:
         
     
     
-    def get_by_id(self,job_id):
+    def get_by_id(self,pk):
         try:
-            return JobModel.objects.select_related("company","company__user").get(id = job_id)
+            return JobModel.objects.select_related("company","company__user").get(pk =pk)
         except JobModel.DoesNotExist:
             return None
         
@@ -78,4 +77,14 @@ class JobRepository:
             company = company,**data
             )
                 
-            
+                
+    def update(self,user,job,**data):
+        for field ,value in data.items():
+            setattr(user,field,value)
+        
+        job.save()
+        
+        return user
+    
+    def delete(self,job):
+        return job.delete()

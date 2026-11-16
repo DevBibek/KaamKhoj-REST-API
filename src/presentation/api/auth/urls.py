@@ -2,11 +2,10 @@ from django.urls import path
 
 from .views import (
     LoginAPIView,
-    LoginJWT,
-    RefreshTokenAPI,
+    LogoutJWTAPI,
     MyUserDetailsAPIView,
+    RefreshTokenAPI,
     UserRegisterationAPIView,
-    LogoutJWTAPI
 )
 
 urlpatterns =  [

@@ -44,6 +44,7 @@ class CompanyRepository:
                 
         return company
     
+    
     def save(self,company):
             company.save(
                 update_fields=["verification_status"]
@@ -52,4 +53,4 @@ class CompanyRepository:
     
 
     def delete(self, company):
-        company.delete()
+        return company.delete()

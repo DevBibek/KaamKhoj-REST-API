@@ -1,11 +1,17 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from presentation.api.jobs.views import CompanyJobViewSet,MyPostAPI,PublicJobListView
+from presentation.api.jobs.views import (
+    CompanyCreateJobAPI,
+    MyPostAPI,
+    PublicJobListView,
+)
 
 router = DefaultRouter()
 
-router.register(r'create/job',CompanyJobViewSet,basename="jobpostapi")
+router.register(r'create/jobs',CompanyCreateJobAPI,basename="jobpostapi")
+
+
 
 urlpatterns = [
     path('',include(router.urls)),

@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status, viewsets
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -30,7 +31,12 @@ from .serializers import UpdateApplicationStatusSerializers
 class ApplyForJobAPI(APIView, HandleResponseMixin):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsApplication]
-    
+    throttle_scope = "apply_job"
+    @extend_schema(
+        request=ApplicationSerializer,
+        summary="Apply Jobs",
+        description="Apply any jobs"
+    )
     def post(self,request):
         serializer = ApplicationSerializer(data = request.data)
         serializer.is_valid(raise_exception=True)

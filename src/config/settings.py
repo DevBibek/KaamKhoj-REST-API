@@ -47,6 +47,7 @@ EXTRANAL_APPS = [
     "infrastructure.users",
     "infrastructure.jobs",
     "infrastructure.applications",
+    "drf_spectacular"
     
 ]
 
@@ -163,14 +164,38 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
     ],
-    # 'DEFAULT_THROTTLE_CLASSES': [
-    #     'rest_framework.throttling.AnonRateThrottle',
-    #     'rest_framework.throttling.UserRateThrottle'
-    # ],
-    # 'DEFAULT_THROTTLE_RATES': {
-    #     'anon': '2/day',
-    #     'user': '1000/day'
-    # },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
+        'presentation.api.common.throttles.JobSeekerThrottle',
+        'presentation.api.common.throttles.CompanyThrottle',
+        
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        # General limits
+        'anon': '60/min',
+        'user': '120/min',
+        
+        # Endpoint-specific limits
+        "register":"3/hour",
+        "login":"5/min",
+        "refresh":"10/min",
+        "public_job":"60/min",
+        "apply_job":"10/hour",
+        
+        
+        # Role-based limits
+        "job_seeker":"60/min",
+        "company":"120/min",
+        
+        
+    },
+    "EXCEPTION_HANDLER":(
+        "presentation.api.exceptions.exception_handler.custom_exception_handler"
+    ),
     
 }
 
@@ -227,4 +252,26 @@ LOGGING = {
             "propagate": False,
         },
     },
+}
+
+
+#for swagger documations
+SPECTACULAR_SETTINGS = {
+    "TITLE": "KaamKhoj REST API",
+    "DESCRIPTION": "Direct connection between companies and job seekers.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "kaamkhoj",
+        "TIMEOUT": 300,
+    }
 }

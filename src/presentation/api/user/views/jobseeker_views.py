@@ -1,5 +1,6 @@
 import logging
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status, viewsets
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -40,6 +41,11 @@ class JobseekerProfileView(viewsets.ViewSet,HandleResponseMixin):
             code = status.HTTP_200_OK
         )
         
+    @extend_schema(
+        request=JobSeekerSerializer,
+        summary="JobSeeker Profile",
+        description="Create a new jobseeker profile",
+    )
     def create(self,request):
         serializer = JobSeekerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -66,7 +72,11 @@ class JobseekerProfileView(viewsets.ViewSet,HandleResponseMixin):
             return self.internal_server_error(
                 status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-            
+    @extend_schema(
+        request=JobseekerUpdateSerializer,
+        summary="Update JobSeeker Profile",
+        description="Update jobseeker's profiles"
+    )
     def update(self,request):
         try:
             jobseeker = JobSeeker.objects.get(user=request.user)

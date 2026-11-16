@@ -19,8 +19,11 @@ class IsCompany(BasePermission):
     
     def has_object_permission(self,request,view,obj,):
         self.message = "Access denied: You do not have permission to modify or access another company's data."
+        if hasattr(obj,"user"):
+            return obj.user == request.user
         
-        return obj.user == request.user
+        if hasattr(obj,"company"):
+            return obj.company.user == request.user
         
     
 class IsJob(BasePermission):

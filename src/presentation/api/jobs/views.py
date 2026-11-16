@@ -1,7 +1,9 @@
 import logging
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 
 # from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -15,56 +17,143 @@ from presentation.api.jobs.serializers import JobSerializer
 
 logger = logging.getLogger("kaamkhoj")
 
-class CompanyJobViewSet(viewsets.ModelViewSet):
-    serializer_class = JobSerializer
-    
-    #Authenteaction / Authorization
+
+class CompanyCreateJobAPI(viewsets.ViewSet,HandleResponseMixin):
     authentication_classes = [JWTAuthentication]
-    permission_classes = [IsCompany]
-    def get_application(self):
+    permission_classes = [IsJob,IsAuthenticated]
+    
+    def get_use_case(self):
         job_repo = JobRepository()
         company_repo = CompanyRepository()
-        return ManageCompanyJobs(
-
-            job_repo=job_repo,
-            company_repo= company_repo)
-    
-    def get_queryset(self):
-        application = self.get_application()
-        
-        return application.get_jobs(
-            company= self.request.user.company)
-    
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data = request.data)
-        serializer.is_valid(raise_exception = True)
-        data = serializer.validated_data
-        use_case = self.get_application()
-        
-        try:
-            job = use_case.create(
-                user=request.user,
-                **data)
             
-        
-        except PermissionError as  e:
-            raise PermissionDenied(detail=str(e))
-        
-        except ValueError as e:
-            raise ValueError(detail=str(e))
-        
-        
-        response_serilizer = self.get_serializer(job)
-        return Response(
-            response_serilizer.data,
-            status=status.HTTP_201_CREATED
+        return ManageCompanyJobs(
+        job_repo=job_repo,
+        company_repo=company_repo
         )
+            
+    def list(self,request):
+        try:
+            job = self.get_use_case().get_jobs(
+                user=request.user
+            )
+            
+            serializer = JobSerializer(job,many=True)
+            return self.success_handle(
+                msg="Company Job retrived successfully",
+                data = serializer.data,
+                code=status.HTTP_200_OK
+            )
+        except ValueError as e:
+            raise NotFound(detail=str(e))
+        
+    @extend_schema(
+        request=JobSerializer,
+        summary="Create Jobs",
+        description="Create new jobs"
+    )
+    def create(self,request):
+        serializer = JobSerializer(data = request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            self.get_use_case().create(
+                user=request.user,
+                data=serializer.validated_data
+                )
+            return self.success_handle(
+                msg="Job created successfully",
+                data=serializer.data,
+                code = status.HTTP_201_CREATED
+            )
+        except ValueError as error:
+            raise serializers.ValidationError(detail=str(error))
+        
+        except PermissionError as error:
+            raise PermissionDenied(detail=str(error))
+        
+        except Exception:
+            logger.exception("Failed to create job.")
+            return self.internal_server_error(status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         
+    def retrieve(self,request,pk):
+        try:
+            job =self.get_use_case().get_by_id(
+                user=request.user,
+                pk=pk
+            )
+            
+            serializer = JobSerializer(job)
+            return self.success_handle(
+                msg="Job retrieve successfully",
+                data = serializer.data,
+                code = status.HTTP_200_OK
+            )
+            
+        except ValueError as error:
+            raise NotFound(detail=str(error))
         
+        except PermissionError as error:
+            raise PermissionDenied(detail=str(error))
+        
+        except Exception:
+            logger.exception("Filed to retrive  job.")
+            return self.internal_server_error(status.HTTP_500_INTERNAL_SERVER_ERROR)
         
     
     
+        
+    @extend_schema(
+        responses=JobSerializer,
+        summary="Update Job",
+        description="Update jobs"
+    )
+    def update(self,request,pk):
+        serializer = JobSerializer(data =request.data,partial=True)
+        serializer.is_valid(raise_exception=True)
+        try:
+            updated_job = self.get_use_case().update(
+                pk=pk,
+                user= request.user,
+                data=serializer.validated_data
+            )
+            response_serializer = JobSerializer(updated_job)
+            return self.success_handle(
+                msg="Job updated successfully",
+                data = response_serializer.data,
+                code = status.HTTP_200_OK
+            )
+        
+        except ValueError as error:
+            raise NotFound(detail=str(error))
+        
+        except PermissionError as error:
+            raise PermissionDenied(detail=str(error))
+        
+        except Exception:
+            logger.exception("Filed to update job.")
+            return self.internal_server_error(status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    def destroy(self,request,pk):
+        try:
+            self.get_use_case().delete(
+                user=request.user,
+                pk=pk
+                )
+            return self.delete_handle(
+                msg="Job delete successfully",
+                code = status.HTTP_204_NO_CONTENT
+            )
+        except ValueError as error:
+            raise NotFound(detail=str(error))
+        
+        except PermissionError as error:
+            raise PermissionDenied(detail=str(error))
+        
+        except Exception:
+            logger.exception("Filed to delete job")
+            return self.internal_server_error(status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
         
 from rest_framework import status
 from rest_framework.response import Response
@@ -101,6 +190,7 @@ from presentation.api.common.pagination import CustomPagination
 
 
 class PublicJobListView(APIView,HandleResponseMixin):
+    throttle_scope = "public_job"
     pagination_class= CustomPagination
     def get(self,request):
         search = request.query_params.get("search")
@@ -121,11 +211,6 @@ class PublicJobListView(APIView,HandleResponseMixin):
             max_salary=max_salary,
             ordering = ordering,
         )
-        # if not jobs.exists():
-        #     return  self.not_found(
-        #         msg="Job not found",
-        #         code= status.HTTP_404_NOT_FOUND
-        #     )
             
             
         paginator = self.pagination_class()
