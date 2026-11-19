@@ -1,5 +1,6 @@
 import logging
 
+from django.core.cache import cache
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status, viewsets
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
@@ -7,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from application.users.create_company import CompanyProfileUseCase
+from infrastructure.cache.company_profile_cache import invalidate_company_profile_cache
 from infrastructure.users.models import Company
 from infrastructure.users.repository.company_repository import (
     CompanyRepository,
@@ -29,23 +31,65 @@ class CompanyProfileViewSet(viewsets.ViewSet,HandleResponseMixin):
 
     def get_use_case(self):
         return CompanyProfileUseCase(CompanyRepository())
-
+    
+    CACHE_TIMEOUT = 300
     
     def list(self,request):
+        
+        cache_key = f"company_profile:v1:user:{request.user}"
+        try:
+            cache_data = cache.get(cache_key)
+        except Exception:
+            logger.warning(
+                "Company profile GET Failed",
+                exc_info= True
+            )
+            cache_data = None
+            
+            
+        if cache_data is not None:
+            response = self.success_handle(
+                msg="Company profile retrieved successfully",
+                data= cache_data,
+                code=status.HTTP_200_OK
+            )
+            response["x-Cache"]="HIT"
+            
+            return response
+        
         try:
             company = self.get_use_case().list(
             user=request.user
             )
+            
     
         except ValueError as e:
             raise NotFound(str(e))
-        serializer = CompanyReadSerializer(company)
         
-        return self.success_handle(
+        serializer = CompanyReadSerializer(company)
+        profile_data = serializer.data
+        
+        try:
+            cache.set(
+                cache_key,
+                profile_data,
+                timeout=self.CACHE_TIMEOUT
+            )
+        
+        except Exception:
+            logger.warning(
+                "Company profile SET failed",
+                exc_info=True
+            )
+        
+        response = self.success_handle(
             msg="Company retrieved successfully",
-            data=serializer.data,
+            data=profile_data,
             code = status.HTTP_200_OK
         )
+        response["x-Cache"]="MISS"
+        
+        return response
         
     @extend_schema(
         request=CompanySerializers,
@@ -61,6 +105,10 @@ class CompanyProfileViewSet(viewsets.ViewSet,HandleResponseMixin):
                 user=request.user,
                 data = serializer.validated_data
             )
+            
+            #invalidate cached profie after creating a company profile
+            invalidate_company_profile_cache(user=request.user)
+            
             return self.success_handle(
                 msg="Company profile created successfully",
                 data=serializer.data,
@@ -106,6 +154,11 @@ class CompanyProfileViewSet(viewsets.ViewSet,HandleResponseMixin):
                 company_data=company_data
             )
             response_serializer = CompanyUpdateSerializer(update_company)
+            
+            
+            #Invalidate cached profile to the next GET returns updated data
+            invalidate_company_profile_cache(user=request.user)
+            
             return self.success_handle(
                 msg= "Company profile update sucessfully",
                 data = response_serializer.data,
@@ -133,6 +186,9 @@ class CompanyProfileViewSet(viewsets.ViewSet,HandleResponseMixin):
             self.get_use_case().delete(
                 user=request.user
             )
+            
+            #Remove cached profile after deleteing the company profile
+            invalidate_company_profile_cache(user=request.user)
             return self.delete_handle(
                 msg="Company profile delete sucessfully",
                 code=status.HTTP_200_OK

@@ -10,49 +10,44 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+"""
+Base settings shared across all environments.
+"""
+
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+import environ
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+env =environ.Env()
+env.read_env(BASE_DIR.parent / ".env")
+
+SECRET_KEY = env("SECRET_KEY")
+REDIS_URL = env("REDIS_URL")
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ften3!(isd-=4!$bh7f@k1^v=ma+^2-rf02b1h#h7bnxumz=yt'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
-
-
-# Application definition
-
+# Application registration
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-]
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
 
-
-EXTRANAL_APPS = [
+    # Third-party apps
     "rest_framework",
-    'rest_framework_simplejwt.token_blacklist',
+    "rest_framework_simplejwt.token_blacklist",
     "django_filters",
+    "drf_spectacular",
+
+    # KaamKhoj apps
     "infrastructure.users",
     "infrastructure.jobs",
     "infrastructure.applications",
-    "drf_spectacular"
-    
 ]
-
-INSTALLED_APPS.extend(EXTRANAL_APPS)
-
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -119,7 +114,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kathmandu'
 
 USE_I18N = True
 
@@ -137,25 +132,9 @@ AUTH_USER_MODEL = 'users.User'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
-
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
-LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-
-
-
-
-# ================= JWT confrig settings========
-
+#JWT AND DRF
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -200,7 +179,33 @@ REST_FRAMEWORK = {
 }
 
 
+#Swagger
+SPECTACULAR_SETTINGS = {
+    "TITLE": "KaamKhoj REST API",
+    "DESCRIPTION": "Direct connection between companies and job seekers.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
 
+
+#Cache
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "kaamkhoj",
+        "TIMEOUT": 300,
+    }
+}
+
+
+
+#Logging
+LOG_DIR = BASE_DIR.parent / "logs"
+LOG_DIR.mkdir(exist_ok=True)
 
 LOGGING = {
     "version": 1,
@@ -255,23 +260,4 @@ LOGGING = {
 }
 
 
-#for swagger documations
-SPECTACULAR_SETTINGS = {
-    "TITLE": "KaamKhoj REST API",
-    "DESCRIPTION": "Direct connection between companies and job seekers.",
-    "VERSION": "1.0.0",
-    "SERVE_INCLUDE_SCHEMA": False,
-}
 
-
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-        "KEY_PREFIX": "kaamkhoj",
-        "TIMEOUT": 300,
-    }
-}

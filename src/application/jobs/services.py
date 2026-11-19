@@ -1,5 +1,5 @@
 from domain.jobs.job_create_rules import JobManageRules
-from infrastructure.users.models import User
+
 
 class ManageCompanyJobs:
     def __init__(
@@ -45,7 +45,7 @@ class ManageCompanyJobs:
             user=user,
             job=job,
             )
-        return self.job_repo.update(job,user,**data)
+        return self.job_repo.update(user,job,**data)
         
             
     def delete(self,user,pk):

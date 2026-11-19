@@ -1,5 +1,8 @@
+import hashlib
 import logging
+from urllib.parse import urlencode
 
+from django.core.cache import cache
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, viewsets
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -9,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from application.jobs.services import ManageCompanyJobs
+from infrastructure.cache.job_cache import invalidate_jobs_cache
 from infrastructure.jobs.repositories import JobRepository
 from infrastructure.users.repository.company_repository import CompanyRepository
 from presentation.api.common.permission import IsCompany, IsJob
@@ -16,6 +20,7 @@ from presentation.api.common.responses import HandleResponseMixin
 from presentation.api.jobs.serializers import JobSerializer
 
 logger = logging.getLogger("kaamkhoj")
+
 
 
 class CompanyCreateJobAPI(viewsets.ViewSet,HandleResponseMixin):
@@ -46,10 +51,15 @@ class CompanyCreateJobAPI(viewsets.ViewSet,HandleResponseMixin):
         except ValueError as e:
             raise NotFound(detail=str(e))
         
+        
+    # Document the required request fields and job creation behavior in Swagger.
     @extend_schema(
         request=JobSerializer,
         summary="Create Jobs",
-        description="Create new jobs"
+        description=(
+        "Create a job under the authenticated company."
+        "Only authorized companies can create jobs.")
+
     )
     def create(self,request):
         serializer = JobSerializer(data = request.data)
@@ -59,6 +69,10 @@ class CompanyCreateJobAPI(viewsets.ViewSet,HandleResponseMixin):
                 user=request.user,
                 data=serializer.validated_data
                 )
+            
+            # Remove stale public job listings after a successful job creation.
+            invalidate_jobs_cache()
+            
             return self.success_handle(
                 msg="Job created successfully",
                 data=serializer.data,
@@ -101,11 +115,11 @@ class CompanyCreateJobAPI(viewsets.ViewSet,HandleResponseMixin):
         
     
     
-        
+    # Document the required request fields and job creation behavior in Swagger.
     @extend_schema(
         responses=JobSerializer,
         summary="Update Job",
-        description="Update jobs"
+        description="Update jobs under the authenticated and own company"
     )
     def update(self,request,pk):
         serializer = JobSerializer(data =request.data,partial=True)
@@ -116,7 +130,12 @@ class CompanyCreateJobAPI(viewsets.ViewSet,HandleResponseMixin):
                 user= request.user,
                 data=serializer.validated_data
             )
+            
+            # Remove stale public job listings after a successful job update.
+            invalidate_jobs_cache()
+            
             response_serializer = JobSerializer(updated_job)
+                    
             return self.success_handle(
                 msg="Job updated successfully",
                 data = response_serializer.data,
@@ -139,6 +158,10 @@ class CompanyCreateJobAPI(viewsets.ViewSet,HandleResponseMixin):
                 user=request.user,
                 pk=pk
                 )
+            
+            # Remove stale public job listings after a successful job delete.
+            invalidate_jobs_cache()
+            
             return self.delete_handle(
                 msg="Job delete successfully",
                 code = status.HTTP_204_NO_CONTENT
@@ -192,7 +215,40 @@ from presentation.api.common.pagination import CustomPagination
 class PublicJobListView(APIView,HandleResponseMixin):
     throttle_scope = "public_job"
     pagination_class= CustomPagination
+    CACHE_TIMEOUT = 90
     def get(self,request):
+        # Create unique cache key
+        
+        query_params = sorted(request.query_params.lists())
+        query_string = urlencode(query_params,doseq=True)
+        request_path = f"{request.path}?{query_string}"
+        
+        hashed_path = hashlib.sha256(
+            request_path.encode()
+        ).hexdigest()
+        
+        cache_key = f"public_jobs:v1:{hashed_path}"
+        
+        #check redis cache
+        
+        try:
+            cache_data = cache.get(cache_key)
+        except Exception:
+            logger.warning(
+                "Redis cache GET failed",
+                exc_info= True
+            )
+            cache_data = None
+            
+            
+        # cache HIT
+        if cache_data is not None:
+            response = Response(cache_data)
+            response["X-Cache"] ="HIT"
+            return response
+        
+        # Cache MISS - Get form database
+        
         search = request.query_params.get("search")
         location = request.query_params.get("location")
         min_salary = request.query_params.get("min_salary")
@@ -200,25 +256,51 @@ class PublicJobListView(APIView,HandleResponseMixin):
         ordering = request.query_params.get("ordering")
         
         job_repo = JobRepository()
-        use_case = GetPublicJobs(
+        use_case = GetPublicJobs( 
             job_repo=job_repo
-        )
+            )
         
+    
+            
         jobs = use_case.execute(
-            search=search,
-            location=location,
-            min_salary=min_salary,
-            max_salary=max_salary,
-            ordering = ordering,
-        )
+                search=search,
+                location=location,
+                min_salary=min_salary,
+                max_salary=max_salary,
+                ordering = ordering,
+            )
             
-            
+        # Apply pagination
         paginator = self.pagination_class()
+        
         paginator.message = "Jobs retrieved successfully."
         page = paginator.paginate_queryset(jobs,request,)
         
-        serializer = JobSerializer(page,many= True)
+        #Serializer data
+        serializer = JobSerializer(
+            page,
+            many= True
+            )
         
-        return paginator.get_paginated_response(serializer.data)
+        response = paginator.get_paginated_response(serializer.data)
+        
+        
+        #Save response in redis
+        
+        try:
+            cache.set(
+                cache_key,
+                response.data,
+                timeout=self.CACHE_TIMEOUT
+            )
+        
+        except Exception:
+            logger.warning(
+                "Redis cache SET failed"    ,
+                exc_info= True
+            )
+        response["X-Cache"] = "MISS"
+        
+        return response
         
         

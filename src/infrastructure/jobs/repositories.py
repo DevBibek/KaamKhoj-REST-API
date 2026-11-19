@@ -80,11 +80,13 @@ class JobRepository:
                 
     def update(self,user,job,**data):
         for field ,value in data.items():
-            setattr(user,field,value)
-        
+            setattr(job,field,value)
+            
         job.save()
         
-        return user
+        return job
+
+    
     
     def delete(self,job):
         return job.delete()
